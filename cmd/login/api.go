@@ -2,44 +2,30 @@ package login
 
 import (
 	"fmt"
-	"syscall"
 
+	"github.com/deifyed/fssmtp/pkg/keyring"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
 )
 
 func RunE(fs *afero.Afero) func(*cobra.Command, []string) error {
-	return func(c *cobra.Command, s []string) error {
-		serverAddress := prompter("Server address: ", false)
-		username := prompter("Username: ", false)
-		password := prompter("Password: ", true)
+	return func(cmd *cobra.Command, args []string) error {
+		creds := promptForCredentials()
 
-		fmt.Println(serverAddress)
-		fmt.Println(username)
-		fmt.Println(password)
+		keyringClient := keyring.Client{Prefix: generatePrefix(creds.username)}
+
+		err := storeCredentials(keyringClient, creds)
+		if err != nil {
+			return fmt.Errorf("storing credentials: %w", err)
+		}
+
+		err = validateCredentials(keyringClient)
+		if err != nil {
+			return fmt.Errorf("validating credentials: %w", err)
+		}
+
+		successPrint(cmd.OutOrStdout(), "Credentials")
 
 		return nil
 	}
-}
-
-func prompter(msg string, hidden bool) string {
-	fmt.Print(msg)
-
-	var result string
-
-	if hidden {
-		rawResult, _ := term.ReadPassword(syscall.Stdin)
-
-		result = string(rawResult)
-	} else {
-		_, err := fmt.Scanln(&result)
-		if err != nil {
-			panic(err.Error())
-		}
-	}
-
-	fmt.Print("\n")
-
-	return result
 }

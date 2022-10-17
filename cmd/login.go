@@ -9,6 +9,7 @@ import (
 var loginCmd = &cobra.Command{
 	Use:   "login",
 	Short: "A brief description of your command",
+	Args:  cobra.ExactArgs(0),
 	RunE:  login.RunE(fs),
 }
 
