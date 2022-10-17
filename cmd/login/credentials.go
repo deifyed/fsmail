@@ -1,37 +1,23 @@
 package login
 
-import "fmt"
+import (
+	"fmt"
 
-const (
-	credentialsSecretName = "credentials"
-	serverAddressKey      = "server-address"
-	usernameKey           = "username"
-	passwordKey           = "password"
+	"github.com/deifyed/fssmtp/pkg/credentials"
 )
 
-type credentials struct {
-	serverAddress string
-	username      string
-	password      string
-}
-
-type credentialsStore interface {
-	Put(string, map[string]string) error
-	Get(string, string) (string, error)
-}
-
-func validateCredentials(store credentialsStore) error {
-	_, err := store.Get(credentialsSecretName, serverAddressKey)
+func validateCredentials(store credentials.CredentialsStore) error {
+	_, err := store.Get(credentials.CredentialsSecretName, credentials.ServerAddressKey)
 	if err != nil {
 		return fmt.Errorf("retrieving server address: %w", err)
 	}
 
-	_, err = store.Get(credentialsSecretName, usernameKey)
+	_, err = store.Get(credentials.CredentialsSecretName, credentials.UsernameKey)
 	if err != nil {
 		return fmt.Errorf("retrieving username: %w", err)
 	}
 
-	_, err = store.Get(credentialsSecretName, passwordKey)
+	_, err = store.Get(credentials.CredentialsSecretName, credentials.PasswordKey)
 	if err != nil {
 		return fmt.Errorf("retrieving password: %w", err)
 	}
@@ -39,21 +25,21 @@ func validateCredentials(store credentialsStore) error {
 	return nil
 }
 
-func promptForCredentials() credentials {
-	creds := credentials{}
+func promptForCredentials() credentials.Credentials {
+	creds := credentials.Credentials{}
 
-	creds.serverAddress = prompter("Server address: ", false)
-	creds.username = prompter("Username: ", false)
-	creds.password = prompter("Password: ", true)
+	creds.ServerAddress = prompter("Server address: ", false)
+	creds.Username = prompter("Username: ", false)
+	creds.Password = prompter("Password: ", true)
 
 	return creds
 }
 
-func storeCredentials(store credentialsStore, creds credentials) error {
-	err := store.Put(credentialsSecretName, map[string]string{
-		serverAddressKey: creds.serverAddress,
-		usernameKey:      creds.username,
-		passwordKey:      creds.password,
+func storeCredentials(store credentials.CredentialsStore, creds credentials.Credentials) error {
+	err := store.Put(credentials.CredentialsSecretName, map[string]string{
+		credentials.ServerAddressKey: creds.ServerAddress,
+		credentials.UsernameKey:      creds.Username,
+		credentials.PasswordKey:      creds.Password,
 	})
 	if err != nil {
 		return fmt.Errorf("storing credentials: %w", err)

@@ -12,7 +12,7 @@ func RunE(fs *afero.Afero) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
 		creds := promptForCredentials()
 
-		keyringClient := keyring.Client{Prefix: generatePrefix(creds.username)}
+		keyringClient := keyring.Client{Prefix: generatePrefix(creds.Username)}
 
 		err := storeCredentials(keyringClient, creds)
 		if err != nil {
