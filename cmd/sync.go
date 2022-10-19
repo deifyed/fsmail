@@ -2,35 +2,28 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
+	"github.com/deifyed/fssmtp/cmd/sync"
 	"github.com/spf13/cobra"
 )
+
+var targetDir string
 
 // syncCmd represents the sync command
 var syncCmd = &cobra.Command{
 	Use:   "sync",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("sync called")
-	},
+	Short: "synchronizes directory with server",
+	RunE:  sync.RunE(fs, &targetDir),
 }
 
 func init() {
 	rootCmd.AddCommand(syncCmd)
 
-	// Here you will define your flags and configuration settings.
+	workDir, err := os.Getwd()
+	if err != nil {
+		panic(fmt.Errorf("getting work directory: %w", err))
+	}
 
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// syncCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// syncCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	syncCmd.Flags().StringVarP(&targetDir, "directory", "d", workDir, "target directory")
 }
