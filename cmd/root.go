@@ -11,7 +11,7 @@ import (
 
 var (
 	cfgFile string
-	fs      = &afero.Afero{Fs: afero.NewMemMapFs()}
+	fs      = &afero.Afero{Fs: afero.NewOsFs()}
 )
 
 // rootCmd represents the base command when called without any subcommands
