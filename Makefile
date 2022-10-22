@@ -1,5 +1,5 @@
 .PHONY=fmt
-BINARY_NAME=fssmtp
+BINARY_NAME=fsmail
 GOPATH := $(shell go env GOPATH)
 GOBIN ?= $(GOPATH)/bin
 PREFIX=~/.local/bin

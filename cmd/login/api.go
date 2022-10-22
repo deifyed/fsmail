@@ -3,7 +3,7 @@ package login
 import (
 	"fmt"
 
-	"github.com/deifyed/fssmtp/pkg/keyring"
+	"github.com/deifyed/fsmail/pkg/keyring"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 )

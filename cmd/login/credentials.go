@@ -3,11 +3,11 @@ package login
 import (
 	"fmt"
 
-	"github.com/deifyed/fssmtp/pkg/credentials"
+	"github.com/deifyed/fsmail/pkg/credentials"
 )
 
 func validateCredentials(store credentials.CredentialsStore) error {
-	_, err := store.Get(credentials.CredentialsSecretName, credentials.ServerAddressKey)
+	_, err := store.Get(credentials.CredentialsSecretName, credentials.SMTPServerAddressKey)
 	if err != nil {
 		return fmt.Errorf("retrieving server address: %w", err)
 	}
@@ -28,7 +28,8 @@ func validateCredentials(store credentials.CredentialsStore) error {
 func promptForCredentials() credentials.Credentials {
 	creds := credentials.Credentials{}
 
-	creds.ServerAddress = prompter("Server address: ", false)
+	creds.SMTPServerAddress = prompter("SMTP server address: ", false)
+	creds.IMAPServerAddress = prompter("IMAP server address: ", false)
 	creds.Username = prompter("Username: ", false)
 	creds.Password = prompter("Password: ", true)
 
@@ -37,9 +38,10 @@ func promptForCredentials() credentials.Credentials {
 
 func storeCredentials(store credentials.CredentialsStore, creds credentials.Credentials) error {
 	err := store.Put(credentials.CredentialsSecretName, map[string]string{
-		credentials.ServerAddressKey: creds.ServerAddress,
-		credentials.UsernameKey:      creds.Username,
-		credentials.PasswordKey:      creds.Password,
+		credentials.SMTPServerAddressKey: creds.SMTPServerAddress,
+		credentials.IMAPServerAddressKey: creds.IMAPServerAddress,
+		credentials.UsernameKey:          creds.Username,
+		credentials.PasswordKey:          creds.Password,
 	})
 	if err != nil {
 		return fmt.Errorf("storing credentials: %w", err)

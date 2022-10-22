@@ -25,13 +25,11 @@ func prompter(msg string, hidden bool) string {
 		}
 	}
 
-	fmt.Print("\n")
-
 	return result
 }
 
-func successPrint(out io.Writer, name string) { //nolint: unused
-	fmt.Fprintf(out, "[%s] %s\n", name, aurora.Green("OK"))
+func successPrint(out io.Writer, name string) {
+	fmt.Fprintf(out, "\n[%s] %s\n", name, aurora.Green("OK"))
 }
 
 func generatePrefix(username string) string {

@@ -2,15 +2,17 @@ package credentials
 
 const (
 	CredentialsSecretName = "credentials"
-	ServerAddressKey      = "server-address"
+	SMTPServerAddressKey  = "smtp-server-address"
+	IMAPServerAddressKey  = "imap-server-address"
 	UsernameKey           = "username"
 	PasswordKey           = "password"
 )
 
 type Credentials struct {
-	ServerAddress string
-	Username      string
-	Password      string
+	SMTPServerAddress string
+	IMAPServerAddress string
+	Username          string
+	Password          string
 }
 
 type CredentialsStore interface {

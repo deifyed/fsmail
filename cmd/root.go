@@ -4,14 +4,19 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/deifyed/fsmail/pkg/config"
+	"github.com/deifyed/fsmail/pkg/logging"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
 var (
-	cfgFile string
-	fs      = &afero.Afero{Fs: afero.NewOsFs()}
+	logLevel string
+	cfgFile  string
+	log      *logrus.Logger
+	fs       = &afero.Afero{Fs: afero.NewOsFs()}
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -31,13 +36,18 @@ func Execute() {
 }
 
 func init() {
+	var err error
 	cobra.OnInitialize(initConfig)
 
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.fssmtp.yaml)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default $HOME/.fssmtp.yaml)")
+
+	rootCmd.PersistentFlags().StringVarP(&logLevel, "log-level", "l", "info", "log level [debug, info]")
+	err = viper.BindPFlag(config.LogLevel, rootCmd.PersistentFlags().Lookup("log-level"))
+	cobra.CheckErr(err)
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -52,8 +62,9 @@ func initConfig() {
 
 		// Search config in home directory with name ".fssmtp" (without extension).
 		viper.AddConfigPath(home)
+		viper.AddConfigPath(targetDir)
 		viper.SetConfigType("yaml")
-		viper.SetConfigName(".fssmtp")
+		viper.SetConfigName(".fsmail")
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match
@@ -62,4 +73,6 @@ func initConfig() {
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
 	}
+
+	log = logging.GetLogger()
 }

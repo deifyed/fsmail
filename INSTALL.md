@@ -6,7 +6,7 @@
 ## Install as Go module
 
 ```shell
-go install github.com/deifyed/fssmtp
+go install github.com/deifyed/fsmail
 ```
 
 ## Install as binary

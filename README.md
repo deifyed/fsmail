@@ -1,4 +1,4 @@
-# fssmtp
+# fsmail
 
 ## Motivation
 
@@ -8,16 +8,16 @@ I want to handle my emails like I would handle my text files
 
 ```shell
 # Log in to your email provider. Credentials are stored in your secret store
-fssmtp login
+fsmail login
 
 # Synchronize your emails
-fssmtp sync
+fsmail sync
 
 # Send an email by creating a file in ./outbox named after the recipient
 echo "Hey!\n\nI miss you" > outbox/lover@example.com
 
 # Then sync again to send the message
-fssmtp sync
+fsmail sync
 ```
 
 ## Installation

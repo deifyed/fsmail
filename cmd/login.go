@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"github.com/deifyed/fssmtp/cmd/login"
+	"github.com/deifyed/fsmail/cmd/login"
 	"github.com/spf13/cobra"
 )
 

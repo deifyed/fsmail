@@ -4,7 +4,7 @@ import (
 	"errors"
 	"os"
 
-	"github.com/deifyed/fssmtp/pkg/config"
+	"github.com/deifyed/fsmail/pkg/config"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
@@ -12,9 +12,9 @@ import (
 var errInvalidLevel = errors.New("invalid level")
 
 func GetLogger() *logrus.Logger {
-	log := logrus.New()
-
 	var err error
+
+	log := logrus.New()
 
 	log.Out = os.Stdout
 	log.Formatter = &logrus.JSONFormatter{PrettyPrint: true}
@@ -25,7 +25,7 @@ func GetLogger() *logrus.Logger {
 			panic(err.Error())
 		}
 
-		log.Warnf("defaulting to %s upon invalid log level %s", log.Level, viper.GetString(config.LogLevel))
+		log.Warnf("defaulting to %s upon invalid log level \"%s\"", log.Level, viper.GetString(config.LogLevel))
 	}
 
 	return log
