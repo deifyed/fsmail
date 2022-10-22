@@ -12,11 +12,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-type logger interface {
-	Debug(args ...interface{})
-	Debugf(format string, args ...interface{})
-}
-
 func RunE(log logger, fs *afero.Afero, targetDir *string) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
 		log = logging.GetLogger()
