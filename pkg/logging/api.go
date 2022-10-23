@@ -2,6 +2,7 @@ package logging
 
 import (
 	"errors"
+	"fmt"
 	"os"
 
 	"github.com/deifyed/fsmail/pkg/config"
@@ -11,24 +12,18 @@ import (
 
 var errInvalidLevel = errors.New("invalid level")
 
-func GetLogger() *logrus.Logger {
+func ConfigureLogger(log *logrus.Logger) error {
 	var err error
-
-	log := logrus.New()
 
 	log.Out = os.Stdout
 	log.Formatter = &logrus.JSONFormatter{PrettyPrint: true}
 
 	log.Level, err = parseLevel(viper.GetString(config.LogLevel))
 	if err != nil {
-		if !errors.Is(err, errInvalidLevel) {
-			panic(err.Error())
-		}
-
-		log.Warnf("defaulting to %s upon invalid log level \"%s\"", log.Level, viper.GetString(config.LogLevel))
+		return fmt.Errorf("parsing log level: %w", err)
 	}
 
-	return log
+	return nil
 }
 
 func parseLevel(level string) (logrus.Level, error) {

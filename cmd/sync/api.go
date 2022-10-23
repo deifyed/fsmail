@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 
 	"github.com/deifyed/fsmail/pkg/config"
-	"github.com/deifyed/fsmail/pkg/logging"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -14,8 +13,6 @@ import (
 
 func RunE(log logger, fs *afero.Afero, targetDir *string) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
-		log = logging.GetLogger()
-
 		absoluteWorkDirectory, err := filepath.Abs(*targetDir)
 		if err != nil {
 			return fmt.Errorf("acquiring absolute target dir: %w", err)
