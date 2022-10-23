@@ -3,6 +3,7 @@ package sync
 import (
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/deifyed/fsmail/pkg/credentials"
 	"github.com/emersion/go-imap"
@@ -25,17 +26,17 @@ func handleInbox(fs *afero.Afero, inboxDir string, creds credentials.Credentials
 		return fmt.Errorf("logging in: %w", err)
 	}
 
-	mbox, err := client.Select("INBOX", false)
+	inbox, err := client.Select("INBOX", false)
 	if err != nil {
 		return fmt.Errorf("selecting INBOX: %w", err)
 	}
 
-	if mbox.Messages == 0 {
+	if inbox.Messages == 0 {
 		return nil
 	}
 
 	seqset := new(imap.SeqSet)
-	seqset.AddNum(mbox.Messages)
+	seqset.AddNum(inbox.Messages)
 
 	var section imap.BodySectionName
 	items := []imap.FetchItem{section.FetchItem()}
@@ -52,52 +53,66 @@ func handleInbox(fs *afero.Afero, inboxDir string, creds credentials.Credentials
 		fmt.Println("Server didn't returned message")
 	}
 
-	r := msg.GetBody(&section)
+	parsedMessage, err := handleMessage(&section, msg)
+	if err != nil {
+		return fmt.Errorf("handling message: %w", err)
+	}
+
+	fmt.Printf("%+v", parsedMessage)
+
+	return nil
+}
+
+type message struct {
+	Subject string
+	To      string
+	Cc      []string
+	Bcc     []string
+	From    string
+	Body    io.Reader
+}
+
+func handleMessage(section *imap.BodySectionName, rawMessage *imap.Message) (message, error) {
+	resultMessage := message{}
+
+	r := rawMessage.GetBody(section)
 	if r == nil {
 		fmt.Println("Server didn't returned message body")
+		resultMessage.Body = strings.NewReader("<empty>")
 	}
 
-	mr, err := mail.CreateReader(r)
+	mailReader, err := mail.CreateReader(r)
 	if err != nil {
-		return fmt.Errorf("creating mail reader: %w", err)
+		return message{}, fmt.Errorf("creating mail reader: %w", err)
 	}
 
-	header := mr.Header
+	header := mailReader.Header
 
 	if from, err := header.AddressList("From"); err == nil {
-		fmt.Println("From:", from)
+		resultMessage.From = from[0].Address
 	}
 	if to, err := header.AddressList("To"); err == nil {
-		fmt.Println("To:", to)
+		resultMessage.To = to[0].Address
 	}
 	if subject, err := header.Subject(); err == nil {
-		fmt.Println("Subject:", subject)
+		resultMessage.Subject = subject
 	}
 
 	for {
-		p, err := mr.NextPart()
+		p, err := mailReader.NextPart()
 		if err == io.EOF {
 			break
 		} else if err != nil {
-			return fmt.Errorf("reading mail part: %w", err)
+			return message{}, fmt.Errorf("reading mail part: %w", err)
 		}
 
-		switch h := p.Header.(type) {
+		switch p.Header.(type) {
 		case *mail.InlineHeader:
-			// This is the message's text (can be plain-text or HTML)
-			body, err := io.ReadAll(p.Body)
-			if err != nil {
-				return fmt.Errorf("reading mail body: %w", err)
-			}
-			fmt.Println(string(body))
+			resultMessage.Body = p.Body
 		case *mail.AttachmentHeader:
-			filename, err := h.Filename()
-			if err != nil {
-				return fmt.Errorf("reading attachment filename: %w", err)
-			}
-			fmt.Println("Attachment:", filename)
+			fmt.Println("Attachment found")
 		}
 	}
 
-	return nil
+	return resultMessage, nil
 }
