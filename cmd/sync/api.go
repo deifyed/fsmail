@@ -20,6 +20,7 @@ func RunE(log logger, fs *afero.Afero, targetDir *string) func(*cobra.Command, [
 
 		absoluteInboxDirectory := path.Join(absoluteWorkDirectory, "inbox")
 		absoluteOutboxDirectory := path.Join(absoluteWorkDirectory, "outbox")
+		absoluteSentDirectory := path.Join(absoluteWorkDirectory, "sent")
 
 		imapServerAddress := viper.GetString(config.IMAPServerAddress)
 		smtpServerAddress := viper.GetString(config.SMTPServerAddress)
@@ -38,7 +39,7 @@ func RunE(log logger, fs *afero.Afero, targetDir *string) func(*cobra.Command, [
 			return fmt.Errorf("handling inbox: %w", err)
 		}
 
-		err = handleOutbox(fs, absoluteOutboxDirectory, creds)
+		err = handleOutbox(fs, absoluteOutboxDirectory, absoluteSentDirectory, creds)
 		if err != nil {
 			return fmt.Errorf("handling outbox: %w", err)
 		}

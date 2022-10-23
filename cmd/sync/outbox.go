@@ -2,6 +2,7 @@ package sync
 
 import (
 	"fmt"
+	"path"
 	"strconv"
 	"strings"
 
@@ -12,17 +13,10 @@ import (
 	"gopkg.in/gomail.v2"
 )
 
-func handleOutbox(fs *afero.Afero, outboxDir string, creds credentials.Credentials) error {
-	host, port, err := parseServerAddress(creds.SMTPServerAddress)
+func handleOutbox(fs *afero.Afero, outboxDir string, sentDir string, creds credentials.Credentials) error {
+	sender, err := getSender(creds)
 	if err != nil {
-		return fmt.Errorf("parsing server address: %w", err)
-	}
-
-	dialer := gomail.NewDialer(host, port, creds.Username, creds.Password)
-
-	sender, err := dialer.Dial()
-	if err != nil {
-		return fmt.Errorf("dialing: %w", err)
+		return fmt.Errorf("getting sender: %w", err)
 	}
 
 	defer func() {
@@ -52,7 +46,28 @@ func handleOutbox(fs *afero.Afero, outboxDir string, creds credentials.Credentia
 		return fmt.Errorf("sending: %w", err)
 	}
 
+	err = moveFiles(fs, outboxDir, sentDir)
+	if err != nil {
+		return fmt.Errorf("moving files: %w", err)
+	}
+
 	return nil
+}
+
+func getSender(creds credentials.Credentials) (gomail.SendCloser, error) {
+	host, port, err := parseServerAddress(creds.SMTPServerAddress)
+	if err != nil {
+		return nil, fmt.Errorf("parsing server address: %w", err)
+	}
+
+	dialer := gomail.NewDialer(host, port, creds.Username, creds.Password)
+
+	sender, err := dialer.Dial()
+	if err != nil {
+		return nil, fmt.Errorf("dialing: %w", err)
+	}
+
+	return sender, nil
 }
 
 func acquireCredentials(imapServerAddress string, smtpServerAddress string) (credentials.Credentials, error) {
@@ -75,6 +90,25 @@ func acquireCredentials(imapServerAddress string, smtpServerAddress string) (cre
 	}
 
 	return creds, nil
+}
+
+func moveFiles(fs *afero.Afero, sourceDir string, destinationDir string) error {
+	files, err := fs.ReadDir(sourceDir)
+	if err != nil {
+		return fmt.Errorf("listing outbox directory: %w", err)
+	}
+
+	for _, file := range files {
+		src := path.Join(sourceDir, file.Name())
+		dest := path.Join(destinationDir, file.Name())
+
+		err = fs.Rename(src, dest)
+		if err != nil {
+			return fmt.Errorf("removing file: %w", err)
+		}
+	}
+
+	return nil
 }
 
 func parseServerAddress(serverAddress string) (string, int, error) {
