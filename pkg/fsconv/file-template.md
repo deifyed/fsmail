@@ -1,8 +1,8 @@
 ---
 To: {{ .To }}
 {{- if .Cc }}
-Cc: {{ range .Cc }} {{ . }}, {{ end }}
-{{ end }}
+Cc: {{ .Cc }}
+{{- end }}
 Subject: {{ .Subject }}
 ---
 

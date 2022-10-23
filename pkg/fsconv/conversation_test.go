@@ -27,6 +27,18 @@ func TestMessageToFile(t *testing.T) {
 			},
 			expectExistingFiles: []string{"/work/This-is-a-test-subject"},
 		},
+		{
+			name: "Should generate expected file with one message and multiple recipients",
+			withMessages: []Message{
+				{
+					Recipient: "me@example.com",
+					Cc:        []string{"someone@example.com", "else@example.com"},
+					Subject:   "This is a test subject",
+					Body:      "Mock content",
+				},
+			},
+			expectExistingFiles: []string{"/work/This-is-a-test-subject"},
+		},
 	}
 
 	for _, tc := range testCases {

@@ -61,13 +61,13 @@ func messageToFile(fs *afero.Afero, targetDir string, message Message) error {
 
 	err = t.Execute(&buf, struct {
 		To      string
-		Cc      []string
-		Bcc     []string
+		Cc      string
+		Bcc     string
 		Subject string
 		Body    string
 	}{
 		To:      message.Recipient,
-		Cc:      message.Cc,
+		Cc:      formatList(message.Cc),
 		Subject: message.Subject,
 		Body:    message.Body,
 	})
@@ -85,4 +85,8 @@ func messageToFile(fs *afero.Afero, targetDir string, message Message) error {
 
 func subjectAsFilename(subject string) string {
 	return strings.ReplaceAll(subject, " ", "-")
+}
+
+func formatList(list []string) string {
+	return strings.Join(list, ", ")
 }
