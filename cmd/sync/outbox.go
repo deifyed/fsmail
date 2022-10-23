@@ -2,6 +2,7 @@ package sync
 
 import (
 	"fmt"
+	"io"
 	"path"
 	"strconv"
 	"strings"
@@ -33,10 +34,15 @@ func handleOutbox(fs *afero.Afero, outboxDir string, sentDir string, creds crede
 	for index, message := range messages {
 		m := gomail.NewMessage()
 
+		rawBody, err := io.ReadAll(message.Body)
+		if err != nil {
+			return fmt.Errorf("buffering body: %w", err)
+		}
+
 		m.SetHeader("From", "fssmtp@localhost")
-		m.SetHeader("To", message.Recipient)
+		m.SetHeader("To", message.To)
 		m.SetHeader("Subject", message.Subject)
-		m.SetBody("text/html", message.Body)
+		m.SetBody("text/html", string(rawBody))
 
 		preparedMessages[index] = m
 	}

@@ -2,8 +2,8 @@ package fsconv
 
 import (
 	"bytes"
-	_ "embed"
 	"fmt"
+	"io"
 	"path"
 	"strings"
 	"text/template"
@@ -33,23 +33,27 @@ func DirectoryToMessages(fs *afero.Afero, targetDir string) ([]Message, error) {
 		subject := parts[0]
 		body := bytes.Join(parts[1:], delim)
 
-		messages = append(messages, Message{Recipient: file.Name(), Subject: string(subject), Body: string(body)})
+		messages = append(messages, Message{To: file.Name(), Subject: string(subject), Body: bytes.NewBuffer(body)})
 	}
 
 	return messages, nil
 }
 
-func MessagesToDirectory(fs *afero.Afero, targetDir string, messages []Message) error {
+func WriteMessagesToDirectory(fs *afero.Afero, targetDir string, messages []Message) error {
 	err := fs.MkdirAll(targetDir, 0o755)
 	if err != nil {
 		return fmt.Errorf("creating directory: %w", err)
 	}
 
+	for _, message := range messages {
+		err = messageToFile(fs, targetDir, message)
+		if err != nil {
+			return fmt.Errorf("writing message: %w", err)
+		}
+	}
+
 	return nil
 }
-
-//go:embed file-template.md
-var messageFileTemplate string
 
 func messageToFile(fs *afero.Afero, targetDir string, message Message) error {
 	t, err := template.New("message").Parse(messageFileTemplate)
@@ -59,6 +63,11 @@ func messageToFile(fs *afero.Afero, targetDir string, message Message) error {
 
 	buf := bytes.Buffer{}
 
+	rawBody, err := io.ReadAll(message.Body)
+	if err != nil {
+		return fmt.Errorf("buffering body: %w", err)
+	}
+
 	err = t.Execute(&buf, struct {
 		To      string
 		Cc      string
@@ -66,10 +75,10 @@ func messageToFile(fs *afero.Afero, targetDir string, message Message) error {
 		Subject string
 		Body    string
 	}{
-		To:      message.Recipient,
+		To:      message.To,
 		Cc:      formatList(message.Cc),
 		Subject: message.Subject,
-		Body:    message.Body,
+		Body:    string(rawBody),
 	})
 	if err != nil {
 		return fmt.Errorf("executing template: %w", err)

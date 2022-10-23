@@ -1,11 +1,13 @@
 package sync
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"strings"
 
 	"github.com/deifyed/fsmail/pkg/credentials"
+	"github.com/deifyed/fsmail/pkg/fsconv"
 	"github.com/emersion/go-imap"
 	"github.com/emersion/go-imap/client"
 	"github.com/emersion/go-message/mail"
@@ -50,7 +52,7 @@ func handleInbox(fs *afero.Afero, inboxDir string, creds credentials.Credentials
 
 	msg := <-messages
 	if msg == nil {
-		fmt.Println("Server didn't returned message")
+		return errors.New("server didn't return any messages")
 	}
 
 	parsedMessage, err := handleMessage(&section, msg)
@@ -58,32 +60,28 @@ func handleInbox(fs *afero.Afero, inboxDir string, creds credentials.Credentials
 		return fmt.Errorf("handling message: %w", err)
 	}
 
+	err = fsconv.WriteMessagesToDirectory(fs, inboxDir, []fsconv.Message{parsedMessage})
+	if err != nil {
+		return fmt.Errorf("writing messages to directory: %w", err)
+	}
+
 	fmt.Printf("%+v", parsedMessage)
 
 	return nil
 }
 
-type message struct {
-	Subject string
-	To      string
-	Cc      []string
-	Bcc     []string
-	From    string
-	Body    io.Reader
-}
-
-func handleMessage(section *imap.BodySectionName, rawMessage *imap.Message) (message, error) {
-	resultMessage := message{}
+func handleMessage(section *imap.BodySectionName, rawMessage *imap.Message) (fsconv.Message, error) {
+	resultMessage := fsconv.Message{}
 
 	r := rawMessage.GetBody(section)
 	if r == nil {
 		fmt.Println("Server didn't returned message body")
-		resultMessage.Body = strings.NewReader("<empty>")
+		resultMessage.Body = strings.NewReader("<!-- no content -->")
 	}
 
 	mailReader, err := mail.CreateReader(r)
 	if err != nil {
-		return message{}, fmt.Errorf("creating mail reader: %w", err)
+		return fsconv.Message{}, fmt.Errorf("creating mail reader: %w", err)
 	}
 
 	header := mailReader.Header
@@ -103,7 +101,7 @@ func handleMessage(section *imap.BodySectionName, rawMessage *imap.Message) (mes
 		if err == io.EOF {
 			break
 		} else if err != nil {
-			return message{}, fmt.Errorf("reading mail part: %w", err)
+			return fsconv.Message{}, fmt.Errorf("reading mail part: %w", err)
 		}
 
 		switch p.Header.(type) {

@@ -3,6 +3,7 @@ package fsconv
 import (
 	"fmt"
 	"path"
+	"strings"
 	"testing"
 
 	"github.com/sebdah/goldie/v2"
@@ -20,9 +21,9 @@ func TestMessageToFile(t *testing.T) {
 			name: "Should generate expected file with one message",
 			withMessages: []Message{
 				{
-					Recipient: "me@example.com",
-					Subject:   "This is a test subject",
-					Body:      "Mock content",
+					To:      "me@example.com",
+					Subject: "This is a test subject",
+					Body:    strings.NewReader("Mock content"),
 				},
 			},
 			expectExistingFiles: []string{"/work/This-is-a-test-subject"},
@@ -31,10 +32,10 @@ func TestMessageToFile(t *testing.T) {
 			name: "Should generate expected file with one message and multiple recipients",
 			withMessages: []Message{
 				{
-					Recipient: "me@example.com",
-					Cc:        []string{"someone@example.com", "else@example.com"},
-					Subject:   "This is a test subject",
-					Body:      "Mock content",
+					To:      "me@example.com",
+					Cc:      []string{"someone@example.com", "else@example.com"},
+					Subject: "This is a test subject",
+					Body:    strings.NewReader("Mock content"),
 				},
 			},
 			expectExistingFiles: []string{"/work/This-is-a-test-subject"},
