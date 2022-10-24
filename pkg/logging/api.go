@@ -5,20 +5,18 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/deifyed/fsmail/pkg/config"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 )
 
 var errInvalidLevel = errors.New("invalid level")
 
-func ConfigureLogger(log *logrus.Logger) error {
+func ConfigureLogger(log *logrus.Logger, logLevel string) error {
 	var err error
 
 	log.Out = os.Stdout
 	log.Formatter = &logrus.JSONFormatter{PrettyPrint: true}
 
-	log.Level, err = parseLevel(viper.GetString(config.LogLevel))
+	log.Level, err = parseLevel(logLevel)
 	if err != nil {
 		return fmt.Errorf("parsing log level: %w", err)
 	}

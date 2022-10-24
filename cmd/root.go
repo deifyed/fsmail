@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/deifyed/fsmail/pkg/config"
@@ -37,7 +38,8 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default $HOME/.fssmtp.yaml)")
 
-	rootCmd.PersistentFlags().StringVarP(&logLevel, "log-level", "l", "info", "log level [debug, info]")
+	viper.SetDefault(config.LogLevel, "info")
+	rootCmd.PersistentFlags().StringVarP(&logLevel, "log-level", "l", viper.GetString(config.LogLevel), "log level [debug, info]")
 	err = viper.BindPFlag(config.LogLevel, rootCmd.PersistentFlags().Lookup("log-level"))
 	cobra.CheckErr(err)
 }
@@ -57,10 +59,16 @@ func initConfig() {
 
 	viper.AutomaticEnv()
 
-	err := logging.ConfigureLogger(log)
-	cobra.CheckErr(err)
+	var msg string
 
 	if err := viper.ReadInConfig(); err == nil {
-		log.Debugf("Using config file: %s", viper.ConfigFileUsed())
+		msg = fmt.Sprintf("Using config file: %s", viper.ConfigFileUsed())
+	} else {
+		msg = "No config file found"
 	}
+
+	err := logging.ConfigureLogger(log, viper.GetString(config.LogLevel))
+	cobra.CheckErr(err)
+
+	log.Debug(msg)
 }
