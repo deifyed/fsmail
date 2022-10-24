@@ -46,7 +46,7 @@ func WriteMessagesToDirectory(fs *afero.Afero, targetDir string, messages []Mess
 	}
 
 	for _, message := range messages {
-		err = messageToFile(fs, targetDir, message)
+		err = WriteMessageToDirectory(fs, targetDir, message)
 		if err != nil {
 			return fmt.Errorf("writing message: %w", err)
 		}
@@ -55,7 +55,7 @@ func WriteMessagesToDirectory(fs *afero.Afero, targetDir string, messages []Mess
 	return nil
 }
 
-func messageToFile(fs *afero.Afero, targetDir string, message Message) error {
+func WriteMessageToDirectory(fs *afero.Afero, targetDir string, message Message) error {
 	t, err := template.New("message").Parse(messageFileTemplate)
 	if err != nil {
 		return fmt.Errorf("parsing template: %w", err)

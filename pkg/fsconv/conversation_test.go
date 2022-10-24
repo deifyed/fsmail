@@ -52,7 +52,7 @@ func TestMessageToFile(t *testing.T) {
 			workDir := "/work"
 
 			for _, message := range tc.withMessages {
-				err := messageToFile(fs, workDir, message)
+				err := WriteMessageToDirectory(fs, workDir, message)
 				assert.NoError(t, err)
 			}
 

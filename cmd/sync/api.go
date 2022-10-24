@@ -29,12 +29,14 @@ func RunE(log logger, fs *afero.Afero, targetDir *string) func(*cobra.Command, [
 		log.Debugf("Using IMAP server address: %s", imapServerAddress)
 		log.Debugf("Using SMTP server address: %s", smtpServerAddress)
 
+		log.Debug("Preparing credentials")
+
 		creds, err := acquireCredentials(imapServerAddress, smtpServerAddress)
 		if err != nil {
 			return fmt.Errorf("acquiring credentials: %w", err)
 		}
 
-		err = handleInbox(fs, absoluteInboxDirectory, creds)
+		err = handleInbox(log, fs, absoluteInboxDirectory, creds)
 		if err != nil {
 			return fmt.Errorf("handling inbox: %w", err)
 		}

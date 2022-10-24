@@ -1,7 +1,6 @@
 package sync
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -14,7 +13,9 @@ import (
 	"github.com/spf13/afero"
 )
 
-func handleInbox(fs *afero.Afero, inboxDir string, creds credentials.Credentials) error {
+func handleInbox(log logger, fs *afero.Afero, inboxDir string, creds credentials.Credentials) error {
+	log.Debug("Connecting to IMAP server")
+
 	client, err := client.DialTLS(creds.IMAPServerAddress, nil)
 	if err != nil {
 		return fmt.Errorf("dialing: %w", err)
@@ -23,6 +24,8 @@ func handleInbox(fs *afero.Afero, inboxDir string, creds credentials.Credentials
 	defer func() {
 		_ = client.Logout()
 	}()
+
+	log.Debug("Logging in")
 
 	if err = client.Login(creds.Username, creds.Password); err != nil {
 		return fmt.Errorf("logging in: %w", err)
@@ -44,33 +47,51 @@ func handleInbox(fs *afero.Afero, inboxDir string, creds credentials.Credentials
 	items := []imap.FetchItem{section.FetchItem()}
 
 	messages := make(chan *imap.Message, 1)
+
+	done := make(chan error, 1)
+	defer close(done)
+
+	log.Debug("Initiating fetch")
+
 	go func() {
 		if err := client.Fetch(seqset, items, messages); err != nil {
 			fmt.Println("Fetch error:", err)
 		}
 	}()
 
-	msg := <-messages
-	if msg == nil {
-		return errors.New("server didn't return any messages")
-	}
+	go handleMessages(fs, inboxDir, section, messages, done)
 
-	parsedMessage, err := handleMessage(&section, msg)
-	if err != nil {
-		return fmt.Errorf("handling message: %w", err)
-	}
+	log.Debug("Waiting for message handling to finish")
 
-	err = fsconv.WriteMessagesToDirectory(fs, inboxDir, []fsconv.Message{parsedMessage})
-	if err != nil {
-		return fmt.Errorf("writing messages to directory: %w", err)
+	if err := <-done; err != nil {
+		return fmt.Errorf("fetching messages: %w", err)
 	}
-
-	fmt.Printf("%+v", parsedMessage)
 
 	return nil
 }
 
-func handleMessage(section *imap.BodySectionName, rawMessage *imap.Message) (fsconv.Message, error) {
+func handleMessages(fs *afero.Afero, inboxDir string, section imap.BodySectionName, messages chan *imap.Message, done chan error) {
+	for {
+		msg, ok := <-messages
+		if !ok {
+			break
+		}
+
+		parsedMessage, err := extractMessage(&section, msg)
+		if err != nil {
+			done <- fmt.Errorf("parsing message: %w", err)
+		}
+
+		err = fsconv.WriteMessageToDirectory(fs, inboxDir, parsedMessage)
+		if err != nil {
+			done <- fmt.Errorf("writing message to directory: %w", err)
+		}
+	}
+
+	done <- nil
+}
+
+func extractMessage(section *imap.BodySectionName, rawMessage *imap.Message) (fsconv.Message, error) {
 	resultMessage := fsconv.Message{}
 
 	r := rawMessage.GetBody(section)
