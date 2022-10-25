@@ -104,6 +104,11 @@ func moveFiles(fs *afero.Afero, sourceDir string, destinationDir string) error {
 		return fmt.Errorf("listing outbox directory: %w", err)
 	}
 
+	err = fs.MkdirAll(destinationDir, defaultFolderPermissions)
+	if err != nil {
+		return fmt.Errorf("creating directory: %w", err)
+	}
+
 	for _, file := range files {
 		src := path.Join(sourceDir, file.Name())
 		dest := path.Join(destinationDir, file.Name())
@@ -133,3 +138,5 @@ func parseServerAddress(serverAddress string) (string, int, error) {
 func generatePrefix(username string) string {
 	return "fssmtp"
 }
+
+const defaultFolderPermissions = 0o755
