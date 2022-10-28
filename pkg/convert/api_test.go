@@ -6,6 +6,7 @@ import (
 	"io"
 	"testing"
 
+	"github.com/sebdah/goldie/v2"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -18,6 +19,12 @@ func TestToMessage(t *testing.T) {
 		{
 			name:        "Should successfully convert a simple message",
 			withContent: newEmailContent(t, "me@example.com", "you@example.com", "testing", "such long mock body"),
+			expectMessage: Message{
+				From:    "me@example.com",
+				To:      "you@example.com",
+				Subject: "testing",
+				Body:    "such long mock body",
+			},
 		},
 	}
 
@@ -37,9 +44,8 @@ func TestToMessage(t *testing.T) {
 
 func TestToReader(t *testing.T) {
 	testCases := []struct {
-		name          string
-		with          Message
-		expectContent string
+		name string
+		with Message
 	}{
 		{
 			name: "Should convert a plain message",
@@ -58,16 +64,14 @@ func TestToReader(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			expectedContent := newEmailContent(t, tc.with.From, tc.with.To, tc.with.Subject, tc.with.Body)
 			got := ToReader(tc.with)
 
-			expectedContentAsBytes, err := io.ReadAll(expectedContent)
+			raw, err := io.ReadAll(got)
 			assert.NoError(t, err)
 
-			gotContentAsBytes, err := io.ReadAll(got)
-			assert.NoError(t, err)
+			g := goldie.New(t)
 
-			assert.Equal(t, string(expectedContentAsBytes), string(gotContentAsBytes))
+			g.Assert(t, t.Name(), raw)
 		})
 	}
 }
