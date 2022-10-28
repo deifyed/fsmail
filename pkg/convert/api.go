@@ -23,6 +23,22 @@ func ToMessage(content io.Reader) (Message, error) {
 	return Message{}, nil
 }
 
+func ToReader(msg Message) io.Reader {
+	buf := bytes.Buffer{}
+
+	buf.Write([]byte(divider + "\n"))
+
+	buf.Write([]byte("To: " + msg.To + "\n"))
+	buf.Write([]byte("From: " + msg.From + "\n"))
+	buf.Write([]byte("Subject: " + msg.Subject + "\n"))
+
+	buf.Write([]byte(divider + "\n\n"))
+
+	buf.Write([]byte(msg.Body + "\n"))
+
+	return &buf
+}
+
 func extractHeader(msg *Message, content io.Reader) error {
 	raw, err := io.ReadAll(content)
 	if err != nil {

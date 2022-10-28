@@ -35,6 +35,43 @@ func TestToMessage(t *testing.T) {
 	}
 }
 
+func TestToReader(t *testing.T) {
+	testCases := []struct {
+		name          string
+		with          Message
+		expectContent string
+	}{
+		{
+			name: "Should convert a plain message",
+			with: Message{
+				From:    "me@example.com",
+				To:      "you@example.com",
+				Subject: "testing",
+				Body:    "such long mock body",
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			expectedContent := newEmailContent(t, tc.with.From, tc.with.To, tc.with.Subject, tc.with.Body)
+			got := ToReader(tc.with)
+
+			expectedContentAsBytes, err := io.ReadAll(expectedContent)
+			assert.NoError(t, err)
+
+			gotContentAsBytes, err := io.ReadAll(got)
+			assert.NoError(t, err)
+
+			assert.Equal(t, string(expectedContentAsBytes), string(gotContentAsBytes))
+		})
+	}
+}
+
 const emailTemplate = `---
 To: {{ .To }}
 From: {{ .From }}
