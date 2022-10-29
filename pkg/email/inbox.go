@@ -10,7 +10,9 @@ import (
 	"github.com/emersion/go-message/mail"
 )
 
-func handleMessages(section imap.BodySectionName, messages chan *imap.Message, done chan error, convertedMessages []Message) {
+func handleMessages(section imap.BodySectionName, messages chan *imap.Message) ([]Message, error) {
+	result := make([]Message, 0)
+
 	for {
 		msg, ok := <-messages
 		if !ok {
@@ -19,10 +21,10 @@ func handleMessages(section imap.BodySectionName, messages chan *imap.Message, d
 
 		extractedMessage, err := extractMessage(&section, msg)
 		if err != nil {
-			done <- fmt.Errorf("parsing message: %w", err)
+			return nil, fmt.Errorf("parsing message: %w", err)
 		}
 
-		convertedMessages = append(convertedMessages, Message{
+		result = append(result, Message{
 			From:    extractedMessage.From,
 			To:      extractedMessage.To,
 			Subject: extractedMessage.Subject,
@@ -30,7 +32,7 @@ func handleMessages(section imap.BodySectionName, messages chan *imap.Message, d
 		})
 	}
 
-	done <- nil
+	return result, nil
 }
 
 func extractMessage(section *imap.BodySectionName, rawMessage *imap.Message) (fsconv.Message, error) {

@@ -16,6 +16,6 @@ type Message struct {
 }
 
 type logger interface {
-	Debug(string)
+	Debug(...interface{})
 	Debugf(string, ...interface{})
 }

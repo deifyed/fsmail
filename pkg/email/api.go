@@ -42,9 +42,6 @@ func FetchInbox(log logger, credentials Credentials) ([]Message, error) {
 
 	messages := make(chan *imap.Message, 1)
 
-	done := make(chan error, 1)
-	defer close(done)
-
 	log.Debug("Initiating fetch")
 
 	go func() {
@@ -53,13 +50,9 @@ func FetchInbox(log logger, credentials Credentials) ([]Message, error) {
 		}
 	}()
 
-	convertedMessages := make([]Message, 0)
-	go handleMessages(section, messages, done, convertedMessages)
-
-	log.Debug("Waiting for message handling to finish")
-
-	if err := <-done; err != nil {
-		return nil, fmt.Errorf("fetching messages: %w", err)
+	convertedMessages, err := handleMessages(section, messages)
+	if err != nil {
+		return nil, fmt.Errorf("handling messages: %w", err)
 	}
 
 	return convertedMessages, nil
