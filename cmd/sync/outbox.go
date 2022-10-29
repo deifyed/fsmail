@@ -2,19 +2,22 @@ package sync
 
 import (
 	"fmt"
-	"io"
+	"os"
 	"path"
 	"strconv"
 	"strings"
+	"time"
 
+	stdfs "io/fs"
+
+	"github.com/deifyed/fsmail/pkg/convert"
 	"github.com/deifyed/fsmail/pkg/credentials"
-	"github.com/deifyed/fsmail/pkg/fsconv"
 	"github.com/deifyed/fsmail/pkg/keyring"
 	"github.com/spf13/afero"
 	"gopkg.in/gomail.v2"
 )
 
-func handleOutbox(fs *afero.Afero, outboxDir string, sentDir string, creds credentials.Credentials) error {
+func handleOutbox(fs *afero.Afero, absoluteOutboxDirectory string, absoluteSentDirectory string, creds credentials.Credentials) error {
 	sender, err := getSender(creds)
 	if err != nil {
 		return fmt.Errorf("getting sender: %w", err)
@@ -24,40 +27,69 @@ func handleOutbox(fs *afero.Afero, outboxDir string, sentDir string, creds crede
 		_ = sender.Close()
 	}()
 
-	messages, err := fsconv.DirectoryToMessages(fs, outboxDir)
+	files, err := fs.ReadDir(absoluteOutboxDirectory)
 	if err != nil {
-		return fmt.Errorf("extracting messages: %w", err)
+		return fmt.Errorf("reading outbox directory: %w", err)
 	}
 
-	preparedMessages := make([]*gomail.Message, len(messages))
+	files = filterFiles(files)
 
-	for index, message := range messages {
-		m := gomail.NewMessage()
+	for _, file := range files {
+		filename := file.Name()
 
-		rawBody, err := io.ReadAll(message.Body)
+		filePath := path.Join(absoluteOutboxDirectory, filename)
+
+		f, err := fs.OpenFile(filePath, os.O_RDONLY, defaultFilePermissions)
 		if err != nil {
-			return fmt.Errorf("buffering body: %w", err)
+			return fmt.Errorf("opening file: %w", err)
 		}
 
-		m.SetHeader("From", "fssmtp@localhost")
-		m.SetHeader("To", message.To)
-		m.SetHeader("Subject", message.Subject)
-		m.SetBody("text/html", string(rawBody))
+		msg, err := convert.ToMessage(f)
+		if err != nil {
+			return fmt.Errorf("converting file to message: %w", err)
+		}
 
-		preparedMessages[index] = m
-	}
+		err = gomail.Send(sender, convertMessageToGoMail(msg))
+		if err != nil {
+			return fmt.Errorf("sending message: %w", err)
+		}
 
-	err = gomail.Send(sender, preparedMessages...)
-	if err != nil {
-		return fmt.Errorf("sending: %w", err)
-	}
+		err = fs.Rename(filePath, path.Join(absoluteSentDirectory, filename))
+		if err != nil {
+			return fmt.Errorf("moving file: %w", err)
+		}
 
-	err = moveFiles(fs, outboxDir, sentDir)
-	if err != nil {
-		return fmt.Errorf("moving files: %w", err)
+		time.Sleep(1 * time.Second)
 	}
 
 	return nil
+}
+
+func convertMessageToGoMail(msg convert.Message) *gomail.Message {
+	m := gomail.NewMessage()
+
+	m.SetHeader("From", msg.From)
+	m.SetHeader("To", msg.To)
+	m.SetHeader("Subject", msg.Subject)
+	m.SetBody("text/plain", msg.Body)
+
+	return m
+}
+
+const defaultFilePermissions = 0o600
+
+func filterFiles(files []stdfs.FileInfo) []stdfs.FileInfo {
+	var filteredFiles []stdfs.FileInfo
+
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+
+		filteredFiles = append(filteredFiles, file)
+	}
+
+	return filteredFiles
 }
 
 func getSender(creds credentials.Credentials) (gomail.SendCloser, error) {
@@ -98,30 +130,6 @@ func acquireCredentials(imapServerAddress string, smtpServerAddress string) (cre
 	return creds, nil
 }
 
-func moveFiles(fs *afero.Afero, sourceDir string, destinationDir string) error {
-	files, err := fs.ReadDir(sourceDir)
-	if err != nil {
-		return fmt.Errorf("listing outbox directory: %w", err)
-	}
-
-	err = fs.MkdirAll(destinationDir, defaultFolderPermissions)
-	if err != nil {
-		return fmt.Errorf("creating directory: %w", err)
-	}
-
-	for _, file := range files {
-		src := path.Join(sourceDir, file.Name())
-		dest := path.Join(destinationDir, file.Name())
-
-		err = fs.Rename(src, dest)
-		if err != nil {
-			return fmt.Errorf("removing file: %w", err)
-		}
-	}
-
-	return nil
-}
-
 func parseServerAddress(serverAddress string) (string, int, error) {
 	parts := strings.Split(serverAddress, ":")
 
@@ -138,5 +146,3 @@ func parseServerAddress(serverAddress string) (string, int, error) {
 func generatePrefix(username string) string {
 	return "fssmtp"
 }
-
-const defaultFolderPermissions = 0o755
