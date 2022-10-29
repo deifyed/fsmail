@@ -11,6 +11,74 @@ import (
 	"github.com/spf13/afero"
 )
 
+type header struct {
+	From    string
+	To      string
+	Subject string
+}
+
+func extractHeader(content io.Reader) (header, error) {
+	raw, err := io.ReadAll(content)
+	if err != nil {
+		return header{}, fmt.Errorf("reading content: %w", err)
+	}
+
+	lines := bytes.Split(raw, []byte("\n"))
+	headerDividerCount := 0
+
+	hdr := header{}
+
+	for _, line := range lines {
+		if headerDividerCount == 2 {
+			break
+		}
+
+		switch {
+		case bytes.HasPrefix(line, []byte("---")):
+			headerDividerCount++
+		case bytes.HasPrefix(line, []byte("From:")):
+			hdr.From = string(bytes.TrimPrefix(line, []byte("From: ")))
+		case bytes.HasPrefix(line, []byte("To:")):
+			hdr.To = string(bytes.TrimPrefix(line, []byte("To: ")))
+		case bytes.HasPrefix(line, []byte("Subject:")):
+			hdr.Subject = string(bytes.TrimPrefix(line, []byte("Subject: ")))
+		default:
+			return header{}, fmt.Errorf("invalid header line: %s", line)
+		}
+	}
+
+	return hdr, nil
+}
+
+func extractBody(content io.Reader) (io.Reader, error) {
+	raw, err := io.ReadAll(content)
+	if err != nil {
+		return nil, fmt.Errorf("reading content: %w", err)
+	}
+
+	lines := bytes.Split(raw, []byte("\n"))
+	headerDividerCount := 0
+
+	body := bytes.Buffer{}
+
+	for _, line := range lines {
+		if headerDividerCount == 2 {
+			body.Write(line)
+			body.Write([]byte("\n"))
+			continue
+		}
+
+		switch {
+		case bytes.HasPrefix(line, []byte("---")):
+			headerDividerCount++
+		default:
+			continue
+		}
+	}
+
+	return &body, nil
+}
+
 func DirectoryToMessages(fs *afero.Afero, targetDir string) ([]Message, error) {
 	files, err := fs.ReadDir(targetDir)
 	if err != nil {
@@ -27,13 +95,22 @@ func DirectoryToMessages(fs *afero.Afero, targetDir string) ([]Message, error) {
 			return nil, fmt.Errorf("reading: %w", err)
 		}
 
-		delim := []byte("\n")
-		parts := bytes.Split(raw, delim)
+		hdr, err := extractHeader(bytes.NewReader(raw))
+		if err != nil {
+			return nil, fmt.Errorf("extracting header: %w", err)
+		}
 
-		subject := parts[0]
-		body := bytes.Join(parts[1:], delim)
+		body, err := extractBody(bytes.NewReader(raw))
+		if err != nil {
+			return nil, fmt.Errorf("extracting body: %w", err)
+		}
 
-		messages = append(messages, Message{To: file.Name(), Subject: string(subject), Body: bytes.NewBuffer(body)})
+		messages = append(messages, Message{
+			To:      hdr.To,
+			From:    hdr.From,
+			Subject: hdr.Subject,
+			Body:    body,
+		})
 	}
 
 	return messages, nil

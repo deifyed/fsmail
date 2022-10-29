@@ -1,10 +1,13 @@
 package fsconv
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"path"
 	"strings"
 	"testing"
+	"text/template"
 
 	"github.com/sebdah/goldie/v2"
 	"github.com/spf13/afero"
@@ -69,6 +72,90 @@ func TestMessageToFile(t *testing.T) {
 
 				g.Assert(t, fmt.Sprintf("%s-%s", t.Name(), path.Base(file)), content)
 			}
+		})
+	}
+}
+
+type testFile struct {
+	filepath string
+	content  io.Reader
+}
+
+const fileTemplate = `---
+To: {{ .To }}
+From: {{ .From }}
+Subject: {{ .Subject }}
+---
+
+{{ .Body }}`
+
+func createTestFileContent(t *testing.T, from, to, subject, body string) io.Reader {
+	templ := template.Must(template.New("").Parse(fileTemplate))
+
+	buf := bytes.Buffer{}
+
+	err := templ.Execute(&buf, struct {
+		From    string
+		To      string
+		Subject string
+		Body    string
+	}{
+		From:    from,
+		To:      to,
+		Subject: subject,
+		Body:    body,
+	})
+	assert.NoError(t, err)
+
+	return &buf
+}
+
+func TestDirectoryToMessages(t *testing.T) {
+	testCases := []struct {
+		name           string
+		withFiles      []testFile
+		expectMessages []Message
+	}{
+		{
+			name: "Should find and extract correctly a single message",
+			withFiles: []testFile{
+				{
+					filepath: "/This-is-a-test-subject",
+					content:  createTestFileContent(t, "me@example.com", "you@example.com", "mock subject", "mock body"),
+				},
+			},
+			expectMessages: []Message{
+				{
+					From:    "me@example.com",
+					To:      "you@example.com",
+					Subject: "mock subject",
+					Body:    strings.NewReader("mock body"),
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			fs := &afero.Afero{Fs: afero.NewMemMapFs()}
+
+			for _, file := range tc.withFiles {
+				err := fs.WriteReader(file.filepath, file.content)
+				assert.NoError(t, err)
+			}
+
+			messages, err := DirectoryToMessages(fs, "/")
+			assert.NoError(t, err)
+
+			for _, message := range messages {
+				message.Body = nil
+			}
+
+			assert.Equal(t, tc.expectMessages, messages)
 		})
 	}
 }
