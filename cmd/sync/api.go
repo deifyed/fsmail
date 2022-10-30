@@ -41,7 +41,7 @@ func RunE(log logger, fs *afero.Afero, targetDir *string) func(*cobra.Command, [
 			return fmt.Errorf("handling inbox: %w", err)
 		}
 
-		err = handleOutbox(fs, absoluteOutboxDirectory, absoluteSentDirectory, creds)
+		err = handleOutbox(log, fs, absoluteOutboxDirectory, absoluteSentDirectory, creds)
 		if err != nil {
 			return fmt.Errorf("handling outbox: %w", err)
 		}

@@ -4,6 +4,7 @@ import "io"
 
 type Credentials struct {
 	IMAPServerAddress string
+	SMTPServerAddress string
 	Username          string
 	Password          string
 }

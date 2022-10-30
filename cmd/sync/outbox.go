@@ -4,29 +4,18 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"strconv"
 	"strings"
-	"time"
 
 	stdfs "io/fs"
 
 	"github.com/deifyed/fsmail/pkg/convert"
 	"github.com/deifyed/fsmail/pkg/credentials"
+	"github.com/deifyed/fsmail/pkg/email"
 	"github.com/deifyed/fsmail/pkg/keyring"
 	"github.com/spf13/afero"
-	"gopkg.in/gomail.v2"
 )
 
-func handleOutbox(fs *afero.Afero, absoluteOutboxDirectory string, absoluteSentDirectory string, creds credentials.Credentials) error {
-	sender, err := getSender(creds)
-	if err != nil {
-		return fmt.Errorf("getting sender: %w", err)
-	}
-
-	defer func() {
-		_ = sender.Close()
-	}()
-
+func handleOutbox(log logger, fs *afero.Afero, absoluteOutboxDirectory string, absoluteSentDirectory string, creds credentials.Credentials) error {
 	files, err := fs.ReadDir(absoluteOutboxDirectory)
 	if err != nil {
 		return fmt.Errorf("reading outbox directory: %w", err)
@@ -34,7 +23,10 @@ func handleOutbox(fs *afero.Afero, absoluteOutboxDirectory string, absoluteSentD
 
 	files = filterFiles(files)
 
-	for _, file := range files {
+	messages := make([]email.Message, len(files))
+	receiptMap := make(map[string]string)
+
+	for index, file := range files {
 		filename := file.Name()
 
 		filePath := path.Join(absoluteOutboxDirectory, filename)
@@ -49,31 +41,44 @@ func handleOutbox(fs *afero.Afero, absoluteOutboxDirectory string, absoluteSentD
 			return fmt.Errorf("converting file to message: %w", err)
 		}
 
-		err = gomail.Send(sender, convertMessageToGoMail(msg))
-		if err != nil {
-			return fmt.Errorf("sending message: %w", err)
-		}
+		receiptMap[email.CalculateReceipt(msg.From, msg.To, msg.Subject, msg.Body)] = filename
+		messages[index] = convertMessageToEmail(msg)
+	}
 
-		err = fs.Rename(filePath, path.Join(absoluteSentDirectory, filename))
+	receipts, err := email.SendMessages(log, email.Credentials{
+		SMTPServerAddress: creds.SMTPServerAddress,
+		Username:          creds.Username,
+		Password:          creds.Password,
+	}, messages)
+	if err != nil {
+		log.Warn(fmt.Errorf("sending messages: %w", err).Error())
+	}
+
+	if len(receipts) == 0 {
+		return err
+	}
+
+	for _, receipt := range receipts {
+		filename := receiptMap[receipt]
+		sourcePath := path.Join(absoluteOutboxDirectory, filename)
+		destinationPath := path.Join(absoluteSentDirectory, filename)
+
+		err = fs.Rename(sourcePath, destinationPath)
 		if err != nil {
 			return fmt.Errorf("moving file: %w", err)
 		}
-
-		time.Sleep(1 * time.Second)
 	}
 
-	return nil
+	return err
 }
 
-func convertMessageToGoMail(msg convert.Message) *gomail.Message {
-	m := gomail.NewMessage()
-
-	m.SetHeader("From", msg.From)
-	m.SetHeader("To", msg.To)
-	m.SetHeader("Subject", msg.Subject)
-	m.SetBody("text/plain", msg.Body)
-
-	return m
+func convertMessageToEmail(msg convert.Message) email.Message {
+	return email.Message{
+		From:    msg.From,
+		To:      msg.To,
+		Subject: msg.Subject,
+		Body:    strings.NewReader(msg.Body),
+	}
 }
 
 const defaultFilePermissions = 0o600
@@ -90,22 +95,6 @@ func filterFiles(files []stdfs.FileInfo) []stdfs.FileInfo {
 	}
 
 	return filteredFiles
-}
-
-func getSender(creds credentials.Credentials) (gomail.SendCloser, error) {
-	host, port, err := parseServerAddress(creds.SMTPServerAddress)
-	if err != nil {
-		return nil, fmt.Errorf("parsing server address: %w", err)
-	}
-
-	dialer := gomail.NewDialer(host, port, creds.Username, creds.Password)
-
-	sender, err := dialer.Dial()
-	if err != nil {
-		return nil, fmt.Errorf("dialing: %w", err)
-	}
-
-	return sender, nil
 }
 
 func acquireCredentials(imapServerAddress string, smtpServerAddress string) (credentials.Credentials, error) {
@@ -128,19 +117,6 @@ func acquireCredentials(imapServerAddress string, smtpServerAddress string) (cre
 	}
 
 	return creds, nil
-}
-
-func parseServerAddress(serverAddress string) (string, int, error) {
-	parts := strings.Split(serverAddress, ":")
-
-	host := parts[0]
-
-	port, err := strconv.Atoi(parts[1])
-	if err != nil {
-		return "", 0, fmt.Errorf("converting port from string to int: %w", err)
-	}
-
-	return host, port, nil
 }
 
 func generatePrefix(username string) string {
