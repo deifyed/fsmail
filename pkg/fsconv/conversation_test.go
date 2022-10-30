@@ -129,7 +129,7 @@ func TestDirectoryToMessages(t *testing.T) {
 					From:    "me@example.com",
 					To:      "you@example.com",
 					Subject: "mock subject",
-					Body:    strings.NewReader("mock body"),
+					Body:    bytes.NewBuffer([]byte("mock body")),
 				},
 			},
 		},
@@ -151,11 +151,37 @@ func TestDirectoryToMessages(t *testing.T) {
 			messages, err := DirectoryToMessages(fs, "/")
 			assert.NoError(t, err)
 
-			for _, message := range messages {
-				message.Body = nil
+			actualMessageMap := messagesAsMap(messages)
+
+			for _, message := range tc.expectMessages {
+				assert.Contains(t, actualMessageMap, message.Subject)
+
+				actualMessage := actualMessageMap[message.Subject]
+
+				assert.Equal(t, message.From, actualMessage.From)
+				assert.Equal(t, message.To, actualMessage.To)
+				assert.Equal(t, message.Subject, actualMessage.Subject)
+
+				actualBody, err := io.ReadAll(actualMessage.Body)
+				assert.NoError(t, err)
+
+				expectedBody, err := io.ReadAll(message.Body)
+				assert.NoError(t, err)
+
+				assert.Equal(t, string(expectedBody), string(actualBody))
 			}
 
 			assert.Equal(t, tc.expectMessages, messages)
 		})
 	}
+}
+
+func messagesAsMap(messages []Message) map[string]Message {
+	m := make(map[string]Message)
+
+	for _, message := range messages {
+		m[message.Subject] = message
+	}
+
+	return m
 }

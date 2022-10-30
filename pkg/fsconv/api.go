@@ -76,7 +76,9 @@ func extractBody(content io.Reader) (io.Reader, error) {
 		}
 	}
 
-	return &body, nil
+	bodyAsBytes := bytes.TrimSpace(body.Bytes())
+
+	return bytes.NewBuffer(bodyAsBytes), nil
 }
 
 func DirectoryToMessages(fs *afero.Afero, targetDir string) ([]Message, error) {
