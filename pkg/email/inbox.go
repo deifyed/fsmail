@@ -5,7 +5,6 @@ import (
 	"io"
 	"strings"
 
-	"github.com/deifyed/fsmail/pkg/fsconv"
 	"github.com/emersion/go-imap"
 	"github.com/emersion/go-message/mail"
 )
@@ -35,8 +34,8 @@ func handleMessages(section imap.BodySectionName, messages chan *imap.Message) (
 	return result, nil
 }
 
-func extractMessage(section *imap.BodySectionName, rawMessage *imap.Message) (fsconv.Message, error) {
-	resultMessage := fsconv.Message{}
+func extractMessage(section *imap.BodySectionName, rawMessage *imap.Message) (Message, error) {
+	resultMessage := Message{}
 
 	r := rawMessage.GetBody(section)
 	if r == nil {
@@ -46,7 +45,7 @@ func extractMessage(section *imap.BodySectionName, rawMessage *imap.Message) (fs
 
 	mailReader, err := mail.CreateReader(r)
 	if err != nil {
-		return fsconv.Message{}, fmt.Errorf("creating mail reader: %w", err)
+		return Message{}, fmt.Errorf("creating mail reader: %w", err)
 	}
 
 	header := mailReader.Header
@@ -66,7 +65,7 @@ func extractMessage(section *imap.BodySectionName, rawMessage *imap.Message) (fs
 		if err == io.EOF {
 			break
 		} else if err != nil {
-			return fsconv.Message{}, fmt.Errorf("reading mail part: %w", err)
+			return Message{}, fmt.Errorf("reading mail part: %w", err)
 		}
 
 		switch p.Header.(type) {
