@@ -14,7 +14,15 @@ fsmail login
 fsmail sync
 
 # Send an email by creating a file in ./outbox named after the recipient
-echo "Hey!\n\nI miss you" > outbox/lover@example.com
+cat <<EOF > important-email
+---
+From: me@example.com
+To: lover@example.com
+Subject: Missing you
+---
+
+Just wanted to let you know xoxo
+EOF
 
 # Then sync again to send the message
 fsmail sync
